@@ -35,6 +35,7 @@ namespace CefSpider {
 		public static string DownloadsURL = "CefSpider://storage/downloads.html";
 		public static string FileNotFoundURL = "CefSpider://storage/errors/notFound.html";
 		public static string CannotConnectURL = "CefSpider://storage/errors/cannotConnect.html";
+		public static string AIChatURL = "CefSpider://storage/aichat.html";
 		public static string SearchURL = "https://www.baidu.com/#q=";
 
 		public bool WebSecurity = true;
@@ -153,6 +154,7 @@ namespace CefSpider {
 
 		private FATabStripItem newStrip;
 		private FATabStripItem downloadsStrip;
+		private FATabStripItem aichatStrip;
 
 		private string currentFullURL;
 		private string currentCleanURL;
@@ -670,6 +672,7 @@ namespace CefSpider {
 
 			if (e.ChangeType == FATabStripItemChangeTypes.Removed) {
 				if (e.Item == downloadsStrip) downloadsStrip = null;
+				if (e.Item == aichatStrip) aichatStrip = null;
 				if (browser != null) {
 					browser.Dispose();
 				}
@@ -725,6 +728,10 @@ namespace CefSpider {
 
 		private void bDownloads_Click(object sender, EventArgs e) {
 			AddNewBrowserTab(DownloadsURL);
+		}
+
+		private void bAIChat_Click(object sender, EventArgs e) {
+			OpenAIChatTab();
 		}
 
 		private void bRefresh_Click(object sender, EventArgs e) {
@@ -874,6 +881,18 @@ namespace CefSpider {
 			} else {
 				ChromiumWebBrowser brw = AddNewBrowserTab(DownloadsURL);
 				downloadsStrip = (FATabStripItem)brw.Parent;
+			}
+		}
+
+		/// <summary>
+		/// open a new tab with the AI chat URL (reuses existing tab if open)
+		/// </summary>
+		public void OpenAIChatTab() {
+			if (aichatStrip != null && ((ChromiumWebBrowser)aichatStrip.Controls[0]).Address == AIChatURL) {
+				TabPages.SelectedItem = aichatStrip;
+			} else {
+				ChromiumWebBrowser brw = AddNewBrowserTab(AIChatURL);
+				aichatStrip = (FATabStripItem)brw.Parent;
 			}
 		}
 

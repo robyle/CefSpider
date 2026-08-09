@@ -1,0 +1,905 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AI 会话 - CefSpider</title>
+  <style>
+    :root {
+      --bg: #0f0f12;
+      --panel: #1a1a20;
+      --panel-2: #22222b;
+      --border: #2e2e3a;
+      --text: #e8e8ee;
+      --muted: #9a9aa8;
+      --accent: #108ee9;
+      --accent-hover: #49a9ee;
+      --user-bg: #108ee9;
+      --ai-bg: #2a2a35;
+      --danger: #f5222d;
+      --ok: #52c41a;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", Helvetica, Arial, sans-serif;
+      font-size: 14px;
+      line-height: 1.6;
+      overflow: hidden;
+    }
+    button {
+      font-family: inherit;
+      cursor: pointer;
+      border: none;
+      background: var(--panel-2);
+      color: var(--text);
+      padding: 8px 14px;
+      border-radius: 6px;
+      transition: background .2s, opacity .2s;
+    }
+    button:hover { background: var(--border); }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    button.primary { background: var(--accent); color: #fff; }
+    button.primary:hover { background: var(--accent-hover); }
+    input, textarea {
+      font-family: inherit;
+      font-size: 13px;
+      color: var(--text);
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 10px;
+      outline: none;
+      width: 100%;
+    }
+    input:focus, textarea:focus { border-color: var(--accent); }
+
+    /* Layout */
+    #app { display: flex; height: 100vh; }
+    #sidebar {
+      width: 260px;
+      flex-shrink: 0;
+      background: var(--panel);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+    }
+    #sidebar-header {
+      padding: 14px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    #sidebar-header .logo {
+      width: 26px; height: 26px;
+      border-radius: 6px;
+      background: linear-gradient(135deg, var(--accent), #6e8efb);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; color: #fff;
+    }
+    #sidebar-header .title { font-weight: 600; font-size: 15px; }
+    #new-chat {
+      margin: 12px;
+      padding: 10px;
+      background: var(--accent);
+      color: #fff;
+      border-radius: 8px;
+      text-align: center;
+    }
+    #new-chat:hover { background: var(--accent-hover); }
+    #history-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 8px 8px;
+    }
+    .history-item {
+      padding: 10px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      margin-bottom: 2px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .history-item:hover { background: var(--panel-2); color: var(--text); }
+    .history-item.active { background: var(--panel-2); color: var(--text); }
+    .history-item .del {
+      opacity: 0;
+      background: none;
+      padding: 2px 6px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+    .history-item:hover .del { opacity: 1; }
+    .history-item .del:hover { color: var(--danger); }
+    #sidebar-footer {
+      padding: 10px 12px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      gap: 8px;
+    }
+    #sidebar-footer button { flex: 1; padding: 7px; font-size: 12px; }
+
+    #main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+    #topbar {
+      height: 48px;
+      flex-shrink: 0;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      gap: 12px;
+    }
+    #topbar .name { font-weight: 600; flex: 1; }
+    #topbar .badge {
+      font-size: 11px;
+      color: var(--muted);
+      padding: 3px 8px;
+      background: var(--panel-2);
+      border-radius: 10px;
+    }
+
+    #messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 0;
+    }
+    .msg {
+      max-width: 820px;
+      margin: 0 auto 20px;
+      padding: 0 20px;
+      display: flex;
+      gap: 14px;
+    }
+    .msg .avatar {
+      width: 32px; height: 32px;
+      border-radius: 6px;
+      flex-shrink: 0;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 13px;
+      color: #fff;
+    }
+    .msg.user .avatar { background: var(--accent); }
+    .msg.ai .avatar { background: linear-gradient(135deg, #6e8efb, var(--accent)); }
+    .msg .body { flex: 1; min-width: 0; }
+    .msg .role { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+    .msg .content { word-wrap: break-word; overflow-wrap: break-word; }
+    .msg.user .content {
+      background: var(--user-bg);
+      color: #fff;
+      padding: 10px 14px;
+      border-radius: 10px;
+      display: inline-block;
+      max-width: 100%;
+      white-space: pre-wrap;
+    }
+    .msg.ai .content {
+      background: var(--ai-bg);
+      padding: 12px 16px;
+      border-radius: 10px;
+    }
+    .msg .actions {
+      margin-top: 6px;
+      display: flex;
+      gap: 8px;
+      opacity: 0;
+    }
+    .msg:hover .actions { opacity: 1; }
+    .msg .actions button {
+      padding: 2px 8px;
+      font-size: 11px;
+      background: transparent;
+      color: var(--muted);
+    }
+    .msg .actions button:hover { color: var(--text); background: var(--panel-2); }
+
+    /* Markdown content */
+    .md p { margin: 0 0 10px; }
+    .md p:last-child { margin-bottom: 0; }
+    .md h1, .md h2, .md h3 { margin: 14px 0 8px; line-height: 1.3; }
+    .md h1 { font-size: 1.3em; }
+    .md h2 { font-size: 1.15em; }
+    .md h3 { font-size: 1.05em; }
+    .md ul, .md ol { margin: 6px 0 10px; padding-left: 22px; }
+    .md li { margin: 2px 0; }
+    .md code {
+      background: rgba(0,0,0,.35);
+      padding: 2px 5px;
+      border-radius: 4px;
+      font-family: Consolas, Menlo, monospace;
+      font-size: .9em;
+    }
+    .md pre {
+      background: #0a0a0e;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 12px;
+      overflow-x: auto;
+      margin: 8px 0;
+    }
+    .md pre code { background: none; padding: 0; font-size: .88em; }
+    .md a { color: var(--accent-hover); }
+    .md blockquote {
+      border-left: 3px solid var(--accent);
+      margin: 8px 0;
+      padding: 2px 12px;
+      color: var(--muted);
+    }
+    .md table { border-collapse: collapse; margin: 8px 0; }
+    .md th, .md td { border: 1px solid var(--border); padding: 6px 10px; }
+    .md th { background: var(--panel-2); }
+
+    .cursor::after {
+      content: '▋';
+      animation: blink 1s steps(2) infinite;
+      color: var(--accent);
+    }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    #empty {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: var(--muted);
+      text-align: center;
+      padding: 40px;
+    }
+    #empty .big {
+      font-size: 28px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+    #empty .suggestions { margin-top: 24px; display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+    #empty .suggestions button {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      padding: 10px 14px;
+      font-size: 13px;
+      max-width: 240px;
+      text-align: left;
+      color: var(--text);
+    }
+    #empty .suggestions button:hover { border-color: var(--accent); color: var(--accent-hover); }
+
+    #composer {
+      flex-shrink: 0;
+      border-top: 1px solid var(--border);
+      padding: 14px 20px 18px;
+      background: var(--panel);
+    }
+    #composer .wrap {
+      max-width: 820px;
+      margin: 0 auto;
+      display: flex;
+      gap: 10px;
+      align-items: flex-end;
+    }
+    #input {
+      flex: 1;
+      resize: none;
+      max-height: 160px;
+      min-height: 44px;
+      padding: 11px 12px;
+      background: var(--bg);
+    }
+    #send {
+      height: 44px;
+      padding: 0 18px;
+      background: var(--accent);
+      color: #fff;
+      border-radius: 8px;
+      font-weight: 600;
+    }
+    #send:hover { background: var(--accent-hover); }
+    #send:disabled { background: var(--panel-2); }
+    #composer .hint {
+      max-width: 820px;
+      margin: 8px auto 0;
+      font-size: 11px;
+      color: var(--muted);
+      text-align: center;
+    }
+
+    /* Modal */
+    #modal-mask {
+      position: fixed; inset: 0;
+      background: rgba(0,0,0,.6);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+    #modal-mask.show { display: flex; }
+    #modal {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      width: 460px;
+      max-width: 92vw;
+      padding: 20px;
+    }
+    #modal h3 { margin: 0 0 16px; font-size: 16px; }
+    #modal .field { margin-bottom: 14px; }
+    #modal .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; }
+    #modal .field .desc { font-size: 11px; color: var(--muted); margin-top: 4px; }
+    #modal .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 6px; }
+
+    /* Toast */
+    #toast {
+      position: fixed; top: 16px; left: 50%;
+      transform: translateX(-50%);
+      background: var(--panel-2);
+      border: 1px solid var(--border);
+      color: var(--text);
+      padding: 10px 18px;
+      border-radius: 8px;
+      z-index: 200;
+      opacity: 0;
+      transition: opacity .25s, top .25s;
+      pointer-events: none;
+      font-size: 13px;
+    }
+    #toast.show { opacity: 1; top: 24px; }
+    #toast.err { border-color: var(--danger); }
+
+    /* Scrollbar */
+    ::-webkit-scrollbar { width: 9px; height: 9px; }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 6px; }
+    ::-webkit-scrollbar-thumb:hover { background: #3a3a48; }
+    ::-webkit-scrollbar-track { background: transparent; }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <div id="sidebar">
+      <div id="sidebar-header">
+        <div class="logo">AI</div>
+        <div class="title">AI 会话</div>
+      </div>
+      <button id="new-chat">+ 新建会话</button>
+      <div id="history-list"></div>
+      <div id="sidebar-footer">
+        <button id="btn-settings">设置</button>
+        <button id="btn-clear-all">清空全部</button>
+      </div>
+    </div>
+
+    <div id="main">
+      <div id="topbar">
+        <div class="name" id="conv-name">新会话</div>
+        <span class="badge" id="model-badge">未配置</span>
+      </div>
+      <div id="messages"></div>
+      <div id="composer">
+        <div class="wrap">
+          <textarea id="input" rows="1" placeholder="输入消息，Enter 发送，Shift+Enter 换行"></textarea>
+          <button id="send">发送</button>
+        </div>
+        <div class="hint">由 CefSpider 提供 · 兼容 OpenAI Chat Completions API</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings modal -->
+  <div id="modal-mask">
+    <div id="modal">
+      <h3>AI 服务设置</h3>
+      <div class="field">
+        <label>API 地址 (Base URL)</label>
+        <input id="set-endpoint" placeholder="https://api.openai.com/v1">
+        <div class="desc">兼容 OpenAI 协议的接口地址，将自动拼接 /chat/completions</div>
+      </div>
+      <div class="field">
+        <label>API Key</label>
+        <input id="set-key" type="password" placeholder="sk-...">
+      </div>
+      <div class="field">
+        <label>模型</label>
+        <input id="set-model" placeholder="gpt-4o-mini">
+      </div>
+      <div class="field">
+        <label>系统提示词 (可选)</label>
+        <textarea id="set-system" rows="3" placeholder="你是一个乐于助人的 AI 助手"></textarea>
+      </div>
+      <div class="actions">
+        <button id="set-cancel">取消</button>
+        <button id="set-save" class="primary">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+
+  <script>
+  (function () {
+    "use strict";
+
+    var LS_KEY = "cefspider_aichat_v1";
+    var LS_SETTINGS = "cefspider_aichat_settings_v1";
+
+    var state = {
+      conversations: [],   // [{id, name, messages:[{role,content}], createdAt}]
+      activeId: null,
+      settings: { endpoint: "https://api.openai.com/v1", key: "", model: "gpt-4o-mini", system: "" },
+      streaming: false,
+      abortCtrl: null
+    };
+
+    // ---------- Persistence ----------
+    function load() {
+      try {
+        var raw = localStorage.getItem(LS_KEY);
+        if (raw) {
+          var data = JSON.parse(raw);
+          state.conversations = data.conversations || [];
+          state.activeId = data.activeId || (state.conversations[0] && state.conversations[0].id) || null;
+        }
+      } catch (e) {}
+      try {
+        var rs = localStorage.getItem(LS_SETTINGS);
+        if (rs) {
+          var s = JSON.parse(rs);
+          state.settings.endpoint = s.endpoint || state.settings.endpoint;
+          state.settings.key = s.key || "";
+          state.settings.model = s.model || state.settings.model;
+          state.settings.system = s.system || "";
+        }
+      } catch (e) {}
+    }
+    function save() {
+      localStorage.setItem(LS_KEY, JSON.stringify({
+        conversations: state.conversations,
+        activeId: state.activeId
+      }));
+    }
+    function saveSettings() {
+      localStorage.setItem(LS_SETTINGS, JSON.stringify(state.settings));
+    }
+
+    // ---------- Utils ----------
+    function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+    function esc(s) {
+      return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+    function toast(msg, isErr) {
+      var t = document.getElementById("toast");
+      t.textContent = msg;
+      t.className = "show" + (isErr ? " err" : "");
+      setTimeout(function () { t.className = isErr ? "err" : ""; }, 2600);
+    }
+
+    // ---------- Lightweight Markdown renderer (no external deps) ----------
+    function renderMarkdown(text) {
+      if (!text) return "";
+      // Extract code blocks first to protect them
+      var blocks = [];
+      text = text.replace(/```(\w*)\n?([\s\S]*?)```/g, function (m, lang, code) {
+        var idx = blocks.length;
+        blocks.push('<pre><code class="lang-' + esc(lang || '') + '">' + esc(code.replace(/\n$/, '')) + '</code></pre>');
+        return "\u0000BLOCK" + idx + "\u0000";
+      });
+      // Inline code
+      text = esc(text);
+      text = text.replace(/`([^`]+)`/g, function (m, c) {
+        return '<code>' + c + '</code>';
+      });
+      // Headings
+      text = text.replace(/^###\s+(.+)$/gm, '<h3>$1</h3>');
+      text = text.replace(/^##\s+(.+)$/gm, '<h2>$1</h2>');
+      text = text.replace(/^#\s+(.+)$/gm, '<h1>$1</h1>');
+      // Bold / italic
+      text = text.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+      text = text.replace(/(^|[^*])\*([^*]+)\*/g, '$1<em>$2</em>');
+      // Links
+      text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+      // Blockquote
+      text = text.replace(/^&gt;\s?(.+)$/gm, '<blockquote>$1</blockquote>');
+      // Tables (simple)
+      text = text.replace(/^\|(.+)\|\n\|([-:\s|]+)\|\n((?:\|.+\|\n?)+)/gm, function (m, head, sep, body) {
+        var ths = head.split('|').map(function (x) { return x.trim(); }).filter(function (x) { return x !== ''; });
+        var rows = body.trim().split('\n').map(function (r) {
+          return r.split('|').map(function (x) { return x.trim(); }).filter(function (x, i, a) { return !(i === 0 || i === a.length - 1) || x !== ''; });
+        });
+        var html = '<table><thead><tr>' + ths.map(function (h) { return '<th>' + h + '</th>'; }).join('') + '</tr></thead><tbody>';
+        rows.forEach(function (r) { html += '<tr>' + r.map(function (c) { return '<td>' + c + '</td>'; }).join('') + '</tr>'; });
+        return html + '</tbody></table>';
+      });
+      // Lists
+      text = text.replace(/^(\s*)[-*]\s+(.+)$/gm, '$1<li>$2</li>');
+      text = text.replace(/(<li>[\s\S]+?<\/li>)(?!\s*<li>)/g, '<ul>$1</ul>');
+      text = text.replace(/^(\s*)\d+\.\s+(.+)$/gm, '$1<li>$2</li>');
+      // Paragraphs / line breaks
+      text = text.split(/\n{2,}/).map(function (block) {
+        if (/^\s*<(h\d|ul|ol|pre|blockquote|table)/.test(block)) return block;
+        return '<p>' + block.replace(/\n/g, '<br>') + '</p>';
+      }).join('\n');
+      // Restore code blocks
+      text = text.replace(/\u0000BLOCK(\d+)\u0000/g, function (m, i) { return blocks[parseInt(i, 10)]; });
+      return text;
+    }
+
+    // ---------- Conversation helpers ----------
+    function activeConv() {
+      return state.conversations.filter(function (c) { return c.id === state.activeId; })[0];
+    }
+    function newConversation() {
+      var c = { id: uid(), name: "新会话", messages: [], createdAt: Date.now() };
+      state.conversations.unshift(c);
+      state.activeId = c.id;
+      save();
+      renderHistory();
+      renderMessages();
+    }
+    function deleteConversation(id) {
+      state.conversations = state.conversations.filter(function (c) { return c.id !== id; });
+      if (state.activeId === id) {
+        state.activeId = state.conversations[0] ? state.conversations[0].id : null;
+      }
+      save();
+      renderHistory();
+      renderMessages();
+    }
+    function selectConversation(id) {
+      state.activeId = id;
+      save();
+      renderHistory();
+      renderMessages();
+    }
+
+    // ---------- Rendering ----------
+    function renderHistory() {
+      var list = document.getElementById("history-list");
+      list.innerHTML = "";
+      if (state.conversations.length === 0) {
+        list.innerHTML = '<div style="color:var(--muted);font-size:12px;padding:12px;text-align:center;">暂无历史会话</div>';
+        return;
+      }
+      state.conversations.forEach(function (c) {
+        var item = document.createElement("div");
+        item.className = "history-item" + (c.id === state.activeId ? " active" : "");
+        var name = document.createElement("div");
+        name.textContent = c.name;
+        name.style.overflow = "hidden";
+        name.style.textOverflow = "ellipsis";
+        name.style.whiteSpace = "nowrap";
+        name.style.flex = "1";
+        var del = document.createElement("button");
+        del.className = "del";
+        del.textContent = "✕";
+        del.title = "删除";
+        del.onclick = function (e) { e.stopPropagation(); deleteConversation(c.id); };
+        item.appendChild(name);
+        item.appendChild(del);
+        item.onclick = function () { selectConversation(c.id); };
+        list.appendChild(item);
+      });
+    }
+
+    function renderMessages() {
+      var box = document.getElementById("messages");
+      var conv = activeConv();
+      var badge = document.getElementById("model-badge");
+      badge.textContent = state.settings.model || "未配置";
+      var nameEl = document.getElementById("conv-name");
+      nameEl.textContent = conv ? conv.name : "新会话";
+
+      box.innerHTML = "";
+      if (!conv || conv.messages.length === 0) {
+        box.innerHTML =
+          '<div id="empty">' +
+            '<div class="big">CefSpider AI 会话</div>' +
+            '<div>开始一段新的对话，向 AI 提问任何问题</div>' +
+            '<div class="suggestions">' +
+              '<button data-q="用一句话介绍 CefSpider 浏览器项目">介绍 CefSpider</button>' +
+              '<button data-q="帮我写一个 C# Hello World 程序">写 C# 示例</button>' +
+              '<button data-q="解释一下什么是 CefSharp">解释 CefSharp</button>' +
+            '</div>' +
+          '</div>';
+        var btns = box.querySelectorAll(".suggestions button");
+        for (var i = 0; i < btns.length; i++) {
+          btns[i].onclick = function () {
+            document.getElementById("input").value = this.getAttribute("data-q");
+            autoResize();
+            doSend();
+          };
+        }
+        return;
+      }
+      conv.messages.forEach(function (m) {
+        box.appendChild(buildMsg(m.role, m.content));
+      });
+      box.scrollTop = box.scrollHeight;
+    }
+
+    function buildMsg(role, content) {
+      var div = document.createElement("div");
+      div.className = "msg " + (role === "user" ? "user" : "ai");
+      var avatar = document.createElement("div");
+      avatar.className = "avatar";
+      avatar.textContent = role === "user" ? "我" : "AI";
+      var body = document.createElement("div");
+      body.className = "body";
+      var roleEl = document.createElement("div");
+      roleEl.className = "role";
+      roleEl.textContent = role === "user" ? "你" : "助手";
+      var contentEl = document.createElement("div");
+      contentEl.className = "content";
+      if (role === "user") {
+        contentEl.textContent = content;
+      } else {
+        contentEl.className = "content md";
+        contentEl.innerHTML = renderMarkdown(content);
+      }
+      body.appendChild(roleEl);
+      body.appendChild(contentEl);
+      if (role === "ai") {
+        var actions = document.createElement("div");
+        actions.className = "actions";
+        var copyBtn = document.createElement("button");
+        copyBtn.textContent = "复制";
+        copyBtn.onclick = function () {
+          copyText(content);
+          toast("已复制");
+        };
+        actions.appendChild(copyBtn);
+        body.appendChild(actions);
+      }
+      div.appendChild(avatar);
+      div.appendChild(body);
+      return div;
+    }
+
+    function copyText(text) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text);
+      } else {
+        var ta = document.createElement("textarea");
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        try { document.execCommand("copy"); } catch (e) {}
+        document.body.removeChild(ta);
+      }
+    }
+
+    // ---------- Streaming chat ----------
+    function buildApiUrl() {
+      var ep = (state.settings.endpoint || "").replace(/\/+$/, "");
+      return ep + "/chat/completions";
+    }
+
+    function buildRequestMessages(conv) {
+      var msgs = [];
+      if (state.settings.system && state.settings.system.trim()) {
+        msgs.push({ role: "system", content: state.settings.system.trim() });
+      }
+      conv.messages.forEach(function (m) {
+        if (m.role === "user" || m.role === "assistant") {
+          msgs.push({ role: m.role === "ai" ? "assistant" : m.role, content: m.content });
+        }
+      });
+      return msgs;
+    }
+
+    function setStreaming(on) {
+      state.streaming = on;
+      document.getElementById("send").disabled = on;
+      document.getElementById("send").textContent = on ? "停止" : "发送";
+    }
+
+    function doSend() {
+      if (state.streaming) {
+        // act as stop
+        if (state.abortCtrl) { try { state.abortCtrl.abort(); } catch (e) {} }
+        return;
+      }
+      var input = document.getElementById("input");
+      var text = input.value.trim();
+      if (!text) return;
+
+      if (!state.settings.key) {
+        toast("请先在设置中配置 API Key", true);
+        openSettings();
+        return;
+      }
+      if (!state.settings.endpoint) {
+        toast("请先在设置中配置 API 地址", true);
+        openSettings();
+        return;
+      }
+
+      var conv = activeConv();
+      if (!conv) { newConversation(); conv = activeConv(); }
+
+      conv.messages.push({ role: "user", content: text });
+      if (conv.name === "新会话") {
+        conv.name = text.length > 24 ? text.slice(0, 24) + "…" : text;
+      }
+      input.value = "";
+      autoResize();
+      save();
+      renderHistory();
+      renderMessages();
+
+      // placeholder assistant message
+      var placeholder = { role: "ai", content: "" };
+      conv.messages.push(placeholder);
+      var msgEl = buildMsg("ai", "");
+      var contentEl = msgEl.querySelector(".content");
+      contentEl.classList.add("cursor");
+      document.getElementById("messages").appendChild(msgEl);
+      var box = document.getElementById("messages");
+      box.scrollTop = box.scrollHeight;
+
+      var url = buildApiUrl();
+      var body = JSON.stringify({
+        model: state.settings.model || "gpt-3.5-turbo",
+        messages: buildRequestMessages({ messages: conv.messages.slice(0, -1) }),
+        stream: true
+      });
+
+      setStreaming(true);
+      var ctrl = new AbortController();
+      state.abortCtrl = ctrl;
+      var decoder = new TextDecoder("utf-8");
+      var buffer = "";
+
+      fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": "Bearer " + state.settings.key
+        },
+        body: body,
+        signal: ctrl.signal
+      }).then(function (resp) {
+        if (!resp.ok) {
+          return resp.text().then(function (t) {
+            throw new Error("HTTP " + resp.status + (t ? ": " + t.slice(0, 300) : ""));
+          });
+        }
+        var reader = resp.body.getReader();
+        function pump() {
+          return reader.read().then(function (res) {
+            if (res.done) { finishStream(); return; }
+            buffer += decoder.decode(res.value, { stream: true });
+            var lines = buffer.split("\n");
+            buffer = lines.pop();
+            for (var i = 0; i < lines.length; i++) {
+              var line = lines[i].trim();
+              if (!line || !line.startsWith("data:")) continue;
+              var data = line.slice(5).trim();
+              if (data === "[DONE]") { finishStream(); return; }
+              try {
+                var json = JSON.parse(data);
+                var delta = json.choices && json.choices[0] && json.choices[0].delta;
+                if (delta && delta.content) {
+                  placeholder.content += delta.content;
+                  contentEl.innerHTML = renderMarkdown(placeholder.content);
+                  contentEl.classList.add("cursor");
+                  box.scrollTop = box.scrollHeight;
+                }
+              } catch (e) { /* ignore partial json */ }
+            }
+            return pump();
+          });
+        }
+        return pump();
+      }).catch(function (err) {
+        if (err && err.name === "AbortError") {
+          placeholder.content += "\n\n_(已停止)_";
+        } else {
+          placeholder.content = "⚠️ 请求失败：" + (err && err.message ? err.message : err);
+          toast("请求失败", true);
+        }
+        finishStream();
+      });
+
+      function finishStream() {
+        contentEl.classList.remove("cursor");
+        if (!placeholder.content) placeholder.content = "_(无响应)_";
+        setStreaming(false);
+        state.abortCtrl = null;
+        save();
+        // re-render actions (copy button)
+        renderMessages();
+      }
+    }
+
+    // ---------- Composer auto-resize ----------
+    function autoResize() {
+      var ta = document.getElementById("input");
+      ta.style.height = "auto";
+      ta.style.height = Math.min(ta.scrollHeight, 160) + "px";
+    }
+
+    // ---------- Settings modal ----------
+    function openSettings() {
+      document.getElementById("set-endpoint").value = state.settings.endpoint;
+      document.getElementById("set-key").value = state.settings.key;
+      document.getElementById("set-model").value = state.settings.model;
+      document.getElementById("set-system").value = state.settings.system;
+      document.getElementById("modal-mask").classList.add("show");
+    }
+    function closeSettings() {
+      document.getElementById("modal-mask").classList.remove("show");
+    }
+    function saveSettingsFromModal() {
+      state.settings.endpoint = document.getElementById("set-endpoint").value.trim() || "https://api.openai.com/v1";
+      state.settings.key = document.getElementById("set-key").value.trim();
+      state.settings.model = document.getElementById("set-model").value.trim() || "gpt-4o-mini";
+      state.settings.system = document.getElementById("set-system").value.trim();
+      saveSettings();
+      closeSettings();
+      renderMessages();
+      toast("设置已保存");
+    }
+
+    // ---------- Wire up ----------
+    function init() {
+      load();
+      if (state.conversations.length === 0) {
+        newConversation();
+      } else {
+        renderHistory();
+        renderMessages();
+      }
+
+      document.getElementById("new-chat").onclick = function () { newConversation(); document.getElementById("input").focus(); };
+      document.getElementById("btn-settings").onclick = openSettings;
+      document.getElementById("btn-clear-all").onclick = function () {
+        if (!confirm("确定清空所有历史会话吗？此操作不可撤销。")) return;
+        state.conversations = [];
+        state.activeId = null;
+        save();
+        newConversation();
+      };
+      document.getElementById("set-cancel").onclick = closeSettings;
+      document.getElementById("set-save").onclick = saveSettingsFromModal;
+      document.getElementById("modal-mask").addEventListener("click", function (e) {
+        if (e.target === this) closeSettings();
+      });
+
+      var sendBtn = document.getElementById("send");
+      var input = document.getElementById("input");
+      sendBtn.onclick = doSend;
+      input.addEventListener("input", autoResize);
+      input.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" && !e.shiftKey) {
+          e.preventDefault();
+          doSend();
+        }
+      });
+
+      // First-run hint
+      if (!state.settings.key) {
+        setTimeout(function () {
+          toast("首次使用请点击「设置」配置 API");
+        }, 600);
+      }
+    }
+
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", init);
+    } else {
+      init();
+    }
+  })();
+  </script>
+</body>
+</html>
