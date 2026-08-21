@@ -39,6 +39,7 @@
             this.BtnBack = new System.Windows.Forms.Button();
             this.timer1 = new System.Windows.Forms.Timer(this.components);
             this.BtnDownloads = new System.Windows.Forms.Button();
+            this.BtnAIChat = new System.Windows.Forms.Button();
             this.TxtURL = new System.Windows.Forms.TextBox();
             this.PanelToolbar = new System.Windows.Forms.Panel();
             this.TabPages = new FarsiLibrary.Win.FATabStrip();
@@ -155,7 +156,22 @@
             this.BtnDownloads.Tag = "Downloads";
             this.BtnDownloads.UseVisualStyleBackColor = true;
             this.BtnDownloads.Click += new System.EventHandler(this.bDownloads_Click);
-            // 
+            //
+            // BtnAIChat
+            //
+            this.BtnAIChat.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.BtnAIChat.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
+            this.BtnAIChat.ForeColor = System.Drawing.Color.White;
+            this.BtnAIChat.Location = new System.Drawing.Point(1014, 0);
+            this.BtnAIChat.Margin = new System.Windows.Forms.Padding(3, 4, 3, 4);
+            this.BtnAIChat.Name = "BtnAIChat";
+            this.BtnAIChat.Size = new System.Drawing.Size(25, 30);
+            this.BtnAIChat.TabIndex = 7;
+            this.BtnAIChat.Tag = "AIChat";
+            this.BtnAIChat.Text = "AI";
+            this.BtnAIChat.UseVisualStyleBackColor = true;
+            this.BtnAIChat.Click += new System.EventHandler(this.bAIChat_Click);
+            //
             // TxtURL
             // 
             this.TxtURL.Anchor = ((System.Windows.Forms.AnchorStyles)(((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Left) 
@@ -175,6 +191,7 @@
             // 
             this.PanelToolbar.BackColor = System.Drawing.Color.White;
             this.PanelToolbar.Controls.Add(this.TxtURL);
+            this.PanelToolbar.Controls.Add(this.BtnAIChat);
             this.PanelToolbar.Controls.Add(this.BtnDownloads);
             this.PanelToolbar.Controls.Add(this.BtnForward);
             this.PanelToolbar.Controls.Add(this.BtnBack);
@@ -363,6 +380,7 @@
         private System.Windows.Forms.Button BtnStop;
         private System.Windows.Forms.Button BtnRefresh;
         private System.Windows.Forms.Button BtnDownloads;
+        private System.Windows.Forms.Button BtnAIChat;
         private System.Windows.Forms.TextBox TxtURL;
         private System.Windows.Forms.Panel PanelToolbar;
         private System.Windows.Forms.Panel PanelStatus;
